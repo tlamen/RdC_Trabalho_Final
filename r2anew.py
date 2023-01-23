@@ -15,16 +15,19 @@ In this algorithm the quality choice is made randomly.
 
 from player.parser import *
 from r2a.ir2a import IR2A
-
+import time
 
 class R2ANew(IR2A):
 
     def __init__(self, id):
         IR2A.__init__(self, id)
+        self.throughputs = []
         self.parsed_mpd = ''
         self.qi = []
+        self.qualities_used = []
 
     def handle_xml_request(self, msg):
+        self.request_time = time.perf_counter()
         self.send_down(msg)
 
     def handle_xml_response(self, msg):
@@ -32,19 +35,28 @@ class R2ANew(IR2A):
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
 
+        t = time.perf_counter() - self.request_time
+        self.throughputs.append(msg.get_bit_length() / t)
+
         self.send_up(msg)
 
-    def getQuality():
-        return 0
+    def getQuality(self, msg):
+        # getting qi list
+        QLi = msg.get_bit_length()
+        N = len(self.qi)
+        # print(QLi)
+        # print(N)
+        # print((QLi - 1) / (N - 1) * 2 - 1)
+        return (QLi - 1) / (N - 1) * 2 - 1
 
-    def getOscilation():
-        return 0
+    def getOscilation(self, msg):
+        return 1
 
-    def getBuffering():
-        return 0
+    def getBuffering(self, msg):
+        return 1
 
-    def getBufferChange():
-        return 0
+    def getBufferChange(self, msg):
+        return 1
 
     def handle_segment_size_request(self, msg):
         # Constants for reward function
@@ -54,13 +66,17 @@ class R2ANew(IR2A):
         C4 = 3
 
         # Getting reward components
-        R_quality = self.getQuality()
-        R_oscilation  = self.getOscilation()
-        R_bufferChange = self.getBufferChange()
-        R_buffering = self.getBuffering()
+        if self.qualities_used:
+            R_quality = self.qualities_used[-1]
+        else:
+            R_quality = 1
+        R_oscilation  = self.getOscilation(msg)
+        R_bufferChange = self.getBufferChange(msg)
+        R_buffering = self.getBuffering(msg)
 
+        print(R_quality)
         # Reward Function
-        R = C1 * R_quality + C2 * R_oscilation + C3 * R_buffering + C4 * R_bufferChange # reward function        
+        R = C1 * 1 + C2 * R_oscilation + C3 * R_buffering + C4 * R_bufferChange      
 
         # Constants for Q function
         alpha = 0.3 # learning rate
@@ -68,13 +84,18 @@ class R2ANew(IR2A):
         max_Qi_id = max(self.qi)
         
         # Q function
-        qi_id = qi_id + alpha + [R + gama * max_Qi_id - qi_id]
+        qi_id = msg.get_bit_length()
+        qi_id = int(qi_id + alpha + (R + gama * max_Qi_id - qi_id))
+
+        if qi_id > max_Qi_id:
+            qi_id = max_Qi_id - 1
         
-        msg.add_quality_id(self.qi[qi_id])
+        msg.add_quality_id(self.qi[1])
 
         self.send_down(msg)
 
     def handle_segment_size_response(self, msg):
+        self.qualities_used.append(self.getQuality(msg))
         self.send_up(msg)
 
     def initialize(self):
