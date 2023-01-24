@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@authors: Bernardo M. Lobo, Luiz Henrique
+@authors: Bernardo M. Lobo, Luiz Henrique, Lucas de Sá Lício
 
 @description: PyDash Project
 
@@ -42,8 +42,9 @@ class R2ANew(IR2A):
 
     def getQuality(self, msg):
         # getting qi list
-        QLi = msg.get_bit_length()
+        QLi = msg.get_quality_id()
         N = len(self.qi)
+        QLi = self.qi.index(QLi)
         # print(QLi)
         # print(N)
         # print((QLi - 1) / (N - 1) * 2 - 1)
