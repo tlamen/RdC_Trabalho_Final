@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@authors: Bernardo M. Lobo, Luiz Henrique, Lucas de Sá Lício
+@authors: Bernardo M. Lobo, Luiz Henrique
 
 @description: PyDash Project
 
@@ -16,6 +16,7 @@ In this algorithm the quality choice is made randomly.
 from player.parser import *
 from r2a.ir2a import IR2A
 import time
+import random
 
 class R2ANew(IR2A):
 
@@ -24,7 +25,11 @@ class R2ANew(IR2A):
         self.throughputs = []
         self.parsed_mpd = ''
         self.qi = []
+        self.qualities_responses = []
         self.qualities_used = []
+        self.last_move = ""
+        self.test_list = []
+        self.index = 10
 
     def handle_xml_request(self, msg):
         self.request_time = time.perf_counter()
@@ -35,9 +40,6 @@ class R2ANew(IR2A):
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
 
-        t = time.perf_counter() - self.request_time
-        self.throughputs.append(msg.get_bit_length() / t)
-
         self.send_up(msg)
 
     def getQuality(self, msg):
@@ -45,12 +47,38 @@ class R2ANew(IR2A):
         QLi = msg.get_quality_id()
         N = len(self.qi)
         QLi = self.qi.index(QLi)
-        # print(QLi)
-        # print(N)
-        # print((QLi - 1) / (N - 1) * 2 - 1)
+
         return (QLi - 1) / (N - 1) * 2 - 1
 
-    def getOscilation(self, msg):
+    def getOscilation(self):
+        oscilation_length_max = 30
+        oscilation_length = -1
+        if len(self.qualities_used) > 1:
+            if self.last_move == "up" and self.qualities_used[-1] < self.qualities_used[-2]:
+                for i in range(len(self.qualities_used)-1, -1, -1):
+                    oscilation_length += 1
+                    if oscilation_length > oscilation_length_max:
+                        return 0
+                    if i != len(self.qualities_used)-1:
+                        if self.qualities_used[i] < self.qualities_used[i-1]:
+                            oscilation_depth = self.qualities_used[i-1] - self.qualities_used[i]
+                            print("----------- Teste de oscilacao ------------")
+                            print(i)
+                            print(self.qualities_used[i])
+                            print(self.qualities_used[i - 1])
+                            print(oscilation_depth)
+                            print(oscilation_length)
+                            
+                            return  (-1 / oscilation_length**(2/oscilation_depth)) + ((oscilation_length - 1) / (oscilation_length_max - 1) * oscilation_length_max**(2/oscilation_depth))
+                self.last_move = "down"
+            else:
+                if self.qualities_used[-1] < self.qualities_used[-2]:
+                    self.last_move = "down"
+                else:
+                    self.last_move = "up"
+                return 0
+        else:
+            return 0
         return 1
 
     def getBuffering(self, msg):
@@ -67,15 +95,14 @@ class R2ANew(IR2A):
         C4 = 3
 
         # Getting reward components
-        if self.qualities_used:
-            R_quality = self.qualities_used[-1]
+        if self.qualities_responses:
+            R_quality = self.qualities_responses[-1]
         else:
             R_quality = 1
-        R_oscilation  = self.getOscilation(msg)
+        R_oscilation  = self.getOscilation()
         R_bufferChange = self.getBufferChange(msg)
         R_buffering = self.getBuffering(msg)
 
-        print(R_quality)
         # Reward Function
         R = C1 * 1 + C2 * R_oscilation + C3 * R_buffering + C4 * R_bufferChange      
 
@@ -90,17 +117,30 @@ class R2ANew(IR2A):
 
         if qi_id > max_Qi_id:
             qi_id = max_Qi_id - 1
-        
-        msg.add_quality_id(self.qi[1])
 
+        # qi_id = random.randint(0, len(self.qi)-1)
+        if self.index > 19:
+            self.index = 10
+        
+        qi_id = self.index
+
+        msg.add_quality_id(self.qi[qi_id])
+        
+
+        self.test_list.append(R_oscilation)
+
+        self.index += 1
         self.send_down(msg)
 
     def handle_segment_size_response(self, msg):
-        self.qualities_used.append(self.getQuality(msg))
+        self.qualities_responses.append(self.getQuality(msg))
+        self.qualities_used.append(self.qi.index(msg.get_quality_id()))
         self.send_up(msg)
 
     def initialize(self):
         pass
 
     def finalization(self):
+        print(self.qualities_used)
+        print(self.test_list)
         pass
