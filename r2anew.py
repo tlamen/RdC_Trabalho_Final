@@ -89,7 +89,7 @@ class R2ANew(IR2A):
         else:
             return 0
 
-    def getBuffering(self, msg):
+    def getBuffering(self):
         Bi = self.whiteboard.get_amount_video_to_play()
         Bmax = self.whiteboard.get_max_buffer_size()
         if Bi <= 0.1 * Bmax:
@@ -97,7 +97,7 @@ class R2ANew(IR2A):
         else:
             return ((2*Bi) / (0.9*Bmax)) - 1.1 / 0.9
  
-    def getBufferChange(self, msg):
+    def getBufferChange(self):
         actual = self.whiteboard.get_amount_video_to_play()
         Bmax = self.whiteboard.get_max_buffer_size()
         Bi = actual / Bmax
@@ -126,8 +126,8 @@ class R2ANew(IR2A):
         else:
             R_quality = 1
         R_oscilation  = self.getOscilation()
-        R_bufferChange = self.getBufferChange(msg)
-        R_buffering = self.getBuffering(msg)
+        R_bufferChange = self.getBufferChange()
+        R_buffering = self.getBuffering()
 
         # Reward Function
         R = C1 * R_quality + C2 * R_oscilation + C3 * R_buffering + C4 * R_bufferChange      
@@ -139,18 +139,18 @@ class R2ANew(IR2A):
         
         # Q function
         if self.qualities_used:
-            qi_id = self.qualities_used[-1]
+            last_qi_id = self.qualities_used[-1]
         else:
-            qi_id = 0
+            last_qi_id = 0
         
-        qi_id_def = int(qi_id + alpha * (R + gama * max_Qi_id - qi_id))
+        next_qi_id = int(last_qi_id + alpha * (R + gama * max_Qi_id - last_qi_id))
 
 
-        if qi_id_def > max_Qi_id:
-            qi_id_def = max_Qi_id
+        if next_qi_id > max_Qi_id:
+            next_qi_id = max_Qi_id
         
 
-        msg.add_quality_id(self.qi[qi_id_def])
+        msg.add_quality_id(self.qi[next_qi_id])
 
         self.send_down(msg)
 
