@@ -62,8 +62,13 @@ class R2ANew(IR2A):
                         return 0
                     if i != len(self.qualities_used)-1:
                         if self.qualities_used[i] < self.qualities_used[i-1]:
+                            print("entrou 2")
                             oscilation_depth = self.qualities_used[i-1] - self.qualities_used[i]
                             
+                            return  (-1 / oscilation_length**(2/oscilation_depth)) + ((oscilation_length - 1) / (oscilation_length_max - 1) * oscilation_length_max**(2/oscilation_depth))
+                        elif i == 0:
+                            oscilation_depth = max(self.qualities_used) - self.qualities_used[i]
+
                             return  (-1 / oscilation_length**(2/oscilation_depth)) + ((oscilation_length - 1) / (oscilation_length_max - 1) * oscilation_length_max**(2/oscilation_depth))
                 self.last_move = "down"
             else:
@@ -74,7 +79,6 @@ class R2ANew(IR2A):
                 return 0
         else:
             return 0
-        return 1
 
     def getBuffering(self, msg):
         actual = self.whiteboard.get_amount_video_to_play()
