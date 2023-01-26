@@ -16,7 +16,7 @@ In this algorithm the quality choice is made randomly.
 from player.parser import *
 from r2a.ir2a import IR2A
 import time
-import random
+from base.whiteboard import Whiteboard
 
 class R2ANew(IR2A):
 
@@ -28,8 +28,9 @@ class R2ANew(IR2A):
         self.qualities_responses = []
         self.qualities_used = []
         self.last_move = ""
-        self.test_list = []
         self.index = 10
+        self.whiteboard = Whiteboard.get_instance()
+        self.last_buffer_use = 0
 
     def handle_xml_request(self, msg):
         self.request_time = time.perf_counter()
@@ -62,12 +63,6 @@ class R2ANew(IR2A):
                     if i != len(self.qualities_used)-1:
                         if self.qualities_used[i] < self.qualities_used[i-1]:
                             oscilation_depth = self.qualities_used[i-1] - self.qualities_used[i]
-                            print("----------- Teste de oscilacao ------------")
-                            print(i)
-                            print(self.qualities_used[i])
-                            print(self.qualities_used[i - 1])
-                            print(oscilation_depth)
-                            print(oscilation_length)
                             
                             return  (-1 / oscilation_length**(2/oscilation_depth)) + ((oscilation_length - 1) / (oscilation_length_max - 1) * oscilation_length_max**(2/oscilation_depth))
                 self.last_move = "down"
@@ -82,10 +77,29 @@ class R2ANew(IR2A):
         return 1
 
     def getBuffering(self, msg):
-        return 1
-
+        actual = self.whiteboard.get_amount_video_to_play()
+        Bmax = self.whiteboard.get_max_buffer_size()
+        Bi = actual / Bmax
+        if Bi <= 0.1:
+            return -1
+        else:
+            return ((2*Bi) / (0.9 * Bmax)) - (1.1 / 0.9)
+ 
     def getBufferChange(self, msg):
-        return 1
+        actual = self.whiteboard.get_amount_video_to_play()
+        Bmax = self.whiteboard.get_max_buffer_size()
+        Bi = actual / Bmax
+        if self.last_buffer_use > 0:
+            if Bi > self.last_buffer_use:
+                response = (Bi - self.last_buffer_use) / (Bi - (self.last_buffer_use / 2 ))
+            else:
+                response = ((Bi - self.last_buffer_use) / self.last_buffer_use)
+        else:
+            self.last_buffer_use = Bi
+            return 0
+        
+        self.last_buffer_use = Bi
+        return response
 
     def handle_segment_size_request(self, msg):
         # Constants for reward function
@@ -127,9 +141,20 @@ class R2ANew(IR2A):
         msg.add_quality_id(self.qi[qi_id])
         
 
-        self.test_list.append(R_oscilation)
-
         self.index += 1
+
+        info = {
+            "R_quality": R_quality,
+            "R_oscilation": R_oscilation,
+            "R_buffering": R_buffering,
+            "R_bufferChange": R_bufferChange,
+            "actualBufferSize": self.whiteboard.get_amount_video_to_play(),
+            "lastMove": self.last_move,
+            "Quality": qi_id
+        }
+
+        print(info)
+
         self.send_down(msg)
 
     def handle_segment_size_response(self, msg):
@@ -141,6 +166,4 @@ class R2ANew(IR2A):
         pass
 
     def finalization(self):
-        print(self.qualities_used)
-        print(self.test_list)
         pass
