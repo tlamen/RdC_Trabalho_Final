@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@authors: Bernardo M. Lobo, Luiz Henrique Figueiredo Soares, Lucas de Sá Lício
+@authors: Bernardo M. Lobo, Luiz Henrique Figueiredo Soares, Lucas de Sá Gomes Lício
 
 @description: PyDash Project
 
